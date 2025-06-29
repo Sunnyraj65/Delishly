@@ -3,9 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@clerk/clerk-react": "^5.32.0",
-    "@clerk/clerk-sdk-node": "^5.1.6",
-    "@clerk/nextjs": "^6.22.0",
     "@dhiwise/component-tagger": "^1.0.1",
     "@reduxjs/toolkit": "^2.6.1",
     "@supabase/supabase-js": "^2.39.0",
