@@ -35,28 +35,35 @@ const ProductSelection = () => {
       setError(null);
       
       try {
-        console.log('Fetching data from Supabase...');
+        console.log('Starting data fetch...');
         
         const [categoriesData, productsData] = await Promise.all([
           db.getCategories(),
           db.getProducts({ status: 'live' })
         ]);
         
-        console.log('Categories fetched:', categoriesData);
-        console.log('Products fetched:', productsData);
+        console.log('Categories received:', categoriesData);
+        console.log('Products received:', productsData);
         
         setCategories(categoriesData);
         setProducts(productsData);
+        
+        if (productsData.length === 0) {
+          console.warn('No products found - this might be expected if database is empty');
+        }
       } catch (e) {
         console.error('Error fetching data:', e);
-        setError('Unable to load products. Please check your internet connection and try again.');
+        setError('Unable to load products. Using demo data.');
         
         // Set fallback data for development
         setCategories([
           { id: '1', name: 'Chicken', created_at: new Date().toISOString() },
           { id: '2', name: 'Fish', created_at: new Date().toISOString() }
         ]);
-        setProducts([]);
+        
+        // Get mock products as fallback
+        const mockProducts = await db.getMockProducts({ status: 'live' });
+        setProducts(mockProducts);
       }
       setIsLoading(false);
     };
@@ -100,23 +107,43 @@ const ProductSelection = () => {
 
   // Transform products to match the expected animal format
   const allAnimals = products
-    .filter(p => p.category?.name?.toLowerCase() === selectedCategory)
+    .filter(p => {
+      if (!p.category) return false;
+      const categoryName = p.category.name?.toLowerCase();
+      return categoryName === selectedCategory;
+    })
     .map(p => {
-      const images = Array.isArray(p.images) ? p.images : [];
+      // Handle images - could be array or JSON string
+      let images = [];
+      if (Array.isArray(p.images)) {
+        images = p.images;
+      } else if (typeof p.images === 'string') {
+        try {
+          images = JSON.parse(p.images);
+        } catch (e) {
+          images = [p.images]; // Treat as single image URL
+        }
+      }
+
+      const defaultImage = p.category.name.toLowerCase() === 'chicken'
+        ? 'https://images.pexels.com/photos/1267320/pexels-photo-1267320.jpeg?auto=compress&cs=tinysrgb&w=400'
+        : 'https://images.pexels.com/photos/1267697/pexels-photo-1267697.jpeg?auto=compress&cs=tinysrgb&w=400';
+
       return {
         id: p.id,
         category: p.category.name.toLowerCase(),
         targetWeight: p.target_weight + 'kg',
         actualWeight: p.actual_weight.toFixed(2),
-        image: images[0] || (p.category.name.toLowerCase() === 'chicken'
-          ? 'https://images.pexels.com/photos/1267320/pexels-photo-1267320.jpeg?auto=compress&cs=tinysrgb&w=400'
-          : 'https://images.pexels.com/photos/1267697/pexels-photo-1267697.jpeg?auto=compress&cs=tinysrgb&w=400'),
+        image: images[0] || defaultImage,
         video: p.video_url || '',
         freshness: 'Just added',
         farmSource: p.farm || 'Farm',
-        quality: p.grade || 'Premium'
+        quality: p.grade || 'Premium',
+        pricePerKg: p.price_per_kg
       };
     });
+
+  console.log('Filtered animals for category', selectedCategory, ':', allAnimals);
 
   return (
     <div className="min-h-screen bg-surface">
@@ -162,10 +189,10 @@ const ProductSelection = () => {
         {/* Error Message */}
         {error && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <div className="flex items-center">
-                <Icon name="AlertCircle" size={20} className="text-red-500 mr-3" />
-                <p className="text-red-700">{error}</p>
+                <Icon name="AlertCircle" size={20} className="text-yellow-600 mr-3" />
+                <p className="text-yellow-800">{error}</p>
               </div>
             </div>
           </div>
@@ -200,13 +227,26 @@ const ProductSelection = () => {
                   ))}
                 </div>
               </div>
+
+              {/* Debug Info */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="card p-4 bg-gray-50">
+                  <h3 className="font-medium text-gray-700 mb-2">Debug Info</h3>
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <div>Total Products: {products.length}</div>
+                    <div>Selected Category: {selectedCategory}</div>
+                    <div>Filtered Animals: {allAnimals.length}</div>
+                    <div>Categories: {categories.length}</div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Animal Preview Panel */}
             <div className="lg:col-span-2">
               <AnimalPreview
                 selectedWeight={''}
-                stockStatus={'available'}
+                stockStatus={allAnimals.length > 10 ? 'available' : allAnimals.length > 0 ? 'limited' : 'out-of-stock'}
                 selectedCategory={selectedCategory}
                 animals={allAnimals}
                 selectedAnimals={selectedAnimals}

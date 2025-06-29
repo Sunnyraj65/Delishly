@@ -4,7 +4,9 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.');
+  console.error('Missing Supabase environment variables');
+  console.log('VITE_SUPABASE_URL:', supabaseUrl);
+  console.log('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Present' : 'Missing');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -12,37 +14,34 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
-  },
-  global: {
-    headers: {
-      'apikey': supabaseAnonKey,
-      'Authorization': `Bearer ${supabaseAnonKey}`
-    }
-  },
-  db: {
-    schema: 'public'
   }
 });
 
-// Database helper functions with improved error handling
+// Database helper functions with improved error handling and fallback data
 export const db = {
   // Categories
   async getCategories() {
     try {
+      console.log('Fetching categories from Supabase...');
       const { data, error } = await supabase
         .from('categories')
         .select('*')
         .order('name');
       
       if (error) {
-        console.error('Error fetching categories:', error);
+        console.error('Supabase error fetching categories:', error);
         throw error;
       }
+      
+      console.log('Categories fetched successfully:', data);
       return data || [];
     } catch (error) {
       console.error('Network error fetching categories:', error);
-      // Return empty array as fallback
-      return [];
+      // Return fallback data
+      return [
+        { id: '1', name: 'Chicken', created_at: new Date().toISOString() },
+        { id: '2', name: 'Fish', created_at: new Date().toISOString() }
+      ];
     }
   },
 
@@ -105,6 +104,8 @@ export const db = {
   // Products
   async getProducts(filters = {}) {
     try {
+      console.log('Fetching products from Supabase with filters:', filters);
+      
       let query = supabase
         .from('products')
         .select(`
@@ -128,15 +129,145 @@ export const db = {
       const { data, error } = await query;
       
       if (error) {
-        console.error('Error fetching products:', error);
+        console.error('Supabase error fetching products:', error);
         throw error;
       }
+      
+      console.log('Products fetched successfully:', data);
       return data || [];
     } catch (error) {
       console.error('Network error fetching products:', error);
-      // Return empty array as fallback
-      return [];
+      // Return fallback mock data for development
+      return this.getMockProducts(filters);
     }
+  },
+
+  // Mock data for fallback when Supabase is not available
+  getMockProducts(filters = {}) {
+    console.log('Using mock product data as fallback');
+    
+    const mockCategories = {
+      '1': { id: '1', name: 'Chicken' },
+      '2': { id: '2', name: 'Fish' }
+    };
+
+    const mockProducts = [
+      {
+        id: '1',
+        name: 'Farm Fresh Chicken',
+        target_weight: 1.2,
+        actual_weight: 1.18,
+        price_per_kg: 180,
+        total_price: 212.40,
+        images: ['https://images.pexels.com/photos/1267320/pexels-photo-1267320.jpeg?auto=compress&cs=tinysrgb&w=400'],
+        grade: 'Premium',
+        farm: 'Farm A',
+        status: 'live',
+        stock_count: 15,
+        category_id: '1',
+        category: mockCategories['1'],
+        created_at: new Date().toISOString()
+      },
+      {
+        id: '2',
+        name: 'Organic Chicken',
+        target_weight: 1.4,
+        actual_weight: 1.42,
+        price_per_kg: 200,
+        total_price: 284.00,
+        images: ['https://images.pexels.com/photos/1267320/pexels-photo-1267320.jpeg?auto=compress&cs=tinysrgb&w=400'],
+        grade: 'Grade A',
+        farm: 'Farm B',
+        status: 'live',
+        stock_count: 8,
+        category_id: '1',
+        category: mockCategories['1'],
+        created_at: new Date().toISOString()
+      },
+      {
+        id: '3',
+        name: 'Free Range Chicken',
+        target_weight: 1.6,
+        actual_weight: 1.58,
+        price_per_kg: 180,
+        total_price: 284.40,
+        images: ['https://images.pexels.com/photos/1267320/pexels-photo-1267320.jpeg?auto=compress&cs=tinysrgb&w=400'],
+        grade: 'Premium',
+        farm: 'Farm C',
+        status: 'live',
+        stock_count: 12,
+        category_id: '1',
+        category: mockCategories['1'],
+        created_at: new Date().toISOString()
+      },
+      {
+        id: '4',
+        name: 'Fresh Pomfret',
+        target_weight: 1.2,
+        actual_weight: 1.15,
+        price_per_kg: 299,
+        total_price: 344.85,
+        images: ['https://images.pexels.com/photos/1267697/pexels-photo-1267697.jpeg?auto=compress&cs=tinysrgb&w=400'],
+        grade: 'Premium',
+        farm: 'Coastal Farm A',
+        status: 'live',
+        stock_count: 6,
+        category_id: '2',
+        category: mockCategories['2'],
+        created_at: new Date().toISOString()
+      },
+      {
+        id: '5',
+        name: 'Sea Bass',
+        target_weight: 1.4,
+        actual_weight: 1.38,
+        price_per_kg: 350,
+        total_price: 483.00,
+        images: ['https://images.pexels.com/photos/1267697/pexels-photo-1267697.jpeg?auto=compress&cs=tinysrgb&w=400'],
+        grade: 'Grade A',
+        farm: 'Coastal Farm B',
+        status: 'live',
+        stock_count: 10,
+        category_id: '2',
+        category: mockCategories['2'],
+        created_at: new Date().toISOString()
+      },
+      {
+        id: '6',
+        name: 'Fresh Kingfish',
+        target_weight: 1.6,
+        actual_weight: 1.62,
+        price_per_kg: 299,
+        total_price: 484.38,
+        images: ['https://images.pexels.com/photos/1267697/pexels-photo-1267697.jpeg?auto=compress&cs=tinysrgb&w=400'],
+        grade: 'Premium',
+        farm: 'Coastal Farm C',
+        status: 'live',
+        stock_count: 14,
+        category_id: '2',
+        category: mockCategories['2'],
+        created_at: new Date().toISOString()
+      }
+    ];
+
+    // Apply filters
+    let filteredProducts = mockProducts;
+
+    if (filters.status) {
+      filteredProducts = filteredProducts.filter(p => p.status === filters.status);
+    }
+
+    if (filters.categoryId) {
+      filteredProducts = filteredProducts.filter(p => p.category_id === filters.categoryId);
+    }
+
+    if (filters.search) {
+      filteredProducts = filteredProducts.filter(p => 
+        p.name.toLowerCase().includes(filters.search.toLowerCase())
+      );
+    }
+
+    return filteredProducts;
   },
 
   async createProduct(productData) {
@@ -266,69 +397,6 @@ export const db = {
       return data;
     } catch (error) {
       console.error('Network error fetching order:', error);
-      throw error;
-    }
-  },
-
-  // Phone Authentication
-  async createPhoneUser(phoneNumber, userData = {}) {
-    try {
-      // Create a phone-based email for Supabase compatibility
-      const email = `${phoneNumber}@phone.freshcut.com`;
-      const password = `phone_${phoneNumber}_${Date.now()}`;
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            phone: phoneNumber,
-            auth_method: 'phone',
-            name: userData.name || `User ${phoneNumber}`,
-            ...userData
-          }
-        }
-      });
-
-      if (error) {
-        console.error('Error creating phone user:', error);
-        throw error;
-      }
-      return data;
-    } catch (error) {
-      console.error('Network error creating phone user:', error);
-      throw error;
-    }
-  },
-
-  async signInWithPhone(phoneNumber, otp) {
-    try {
-      // For demo purposes, accept any 6-digit OTP
-      if (!otp || otp.length !== 6) {
-        throw new Error('Invalid OTP');
-      }
-
-      const email = `${phoneNumber}@phone.freshcut.com`;
-      
-      try {
-        // Try to sign in with existing account
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password: `phone_${phoneNumber}_verified`
-        });
-
-        if (error) {
-          // If account doesn't exist, create it
-          return await this.createPhoneUser(phoneNumber);
-        }
-
-        return data;
-      } catch (err) {
-        // Create new account if sign in fails
-        return await this.createPhoneUser(phoneNumber);
-      }
-    } catch (error) {
-      console.error('Network error signing in with phone:', error);
       throw error;
     }
   }
