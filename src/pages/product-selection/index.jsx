@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Icon from 'components/AppIcon';
-import { db } from 'lib/supabase';
+import { db, testConnection } from 'lib/supabase';
 
 import Header from 'components/ui/Header';
 import ProgressIndicator from 'components/ui/ProgressIndicator';
@@ -19,6 +19,7 @@ const ProductSelection = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState('testing');
 
   // Initialize category from URL params
   useEffect(() => {
@@ -28,56 +29,49 @@ const ProductSelection = () => {
     }
   }, [searchParams]);
 
-  // Fetch categories and products with better error handling
+  // Test connection and fetch data
   useEffect(() => {
-    const fetchData = async () => {
+    const initializeData = async () => {
       setIsLoading(true);
       setError(null);
       
       try {
-        console.log('Starting data fetch...');
+        console.log('🔄 Initializing product selection...');
+        
+        // Test connection first
+        const isConnected = await testConnection();
+        setConnectionStatus(isConnected ? 'connected' : 'fallback');
+        
+        if (!isConnected) {
+          console.log('⚠️ Using fallback mode - Supabase connection failed');
+          setError('Using demo data - database connection unavailable');
+        }
         
         // Always try to fetch categories first
         const categoriesData = await db.getCategories();
-        console.log('Categories received:', categoriesData);
+        console.log('📂 Categories loaded:', categoriesData.length);
         setCategories(categoriesData);
         
         // Then fetch products
         const productsData = await db.getProducts({ status: 'live' });
-        console.log('Products received:', productsData);
+        console.log('📦 Products loaded:', productsData.length);
         setProducts(productsData);
         
-        if (productsData.length === 0) {
-          console.warn('No products found - this might be expected if database is empty');
+        if (productsData.length === 0 && isConnected) {
+          console.warn('⚠️ No products found in database');
+          setError('No products available. Please check back later.');
         }
         
-        // Clear any previous error if data fetch succeeds
-        setError(null);
       } catch (e) {
-        console.error('Error fetching data:', e);
-        setError('Unable to connect to database. Using demo data for preview.');
-        
-        // Set fallback data for development - this should always work
-        try {
-          const fallbackCategories = [
-            { id: '1', name: 'Chicken', created_at: new Date().toISOString() },
-            { id: '2', name: 'Fish', created_at: new Date().toISOString() }
-          ];
-          setCategories(fallbackCategories);
-          
-          // Get mock products as fallback
-          const mockProducts = db.getMockProducts({ status: 'live' });
-          setProducts(mockProducts);
-          console.log('Fallback data loaded successfully');
-        } catch (fallbackError) {
-          console.error('Even fallback data failed:', fallbackError);
-          setError('Unable to load any data. Please refresh the page.');
-        }
+        console.error('❌ Failed to initialize data:', e);
+        setError('Unable to load product data. Please refresh the page.');
+        setConnectionStatus('error');
       }
+      
       setIsLoading(false);
     };
 
-    fetchData();
+    initializeData();
   }, []);
 
   const handleCategoryChange = (category) => {
@@ -152,7 +146,7 @@ const ProductSelection = () => {
       };
     });
 
-  console.log('Filtered animals for category', selectedCategory, ':', allAnimals);
+  console.log('🔍 Filtered animals for category', selectedCategory, ':', allAnimals.length);
 
   return (
     <div className="min-h-screen bg-surface">
@@ -187,21 +181,47 @@ const ProductSelection = () => {
                 </div>
               </div>
               
-              <StockIndicator 
-                category={selectedCategory}
-                totalStock={allAnimals.length}
-              />
+              <div className="flex items-center space-x-4">
+                {/* Connection Status */}
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    connectionStatus === 'connected' ? 'bg-success animate-pulse' :
+                    connectionStatus === 'fallback' ? 'bg-warning' : 'bg-error'
+                  }`}></div>
+                  <span className="text-xs text-text-tertiary">
+                    {connectionStatus === 'connected' ? 'Live' :
+                     connectionStatus === 'fallback' ? 'Demo' : 'Offline'}
+                  </span>
+                </div>
+                
+                <StockIndicator 
+                  category={selectedCategory}
+                  totalStock={allAnimals.length}
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Error Message */}
+        {/* Status Messages */}
         {error && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className={`rounded-lg p-4 ${
+              connectionStatus === 'fallback' 
+                ? 'bg-blue-50 border border-blue-200' 
+                : 'bg-yellow-50 border border-yellow-200'
+            }`}>
               <div className="flex items-center">
-                <Icon name="Info" size={20} className="text-blue-600 mr-3" />
-                <p className="text-blue-800">{error}</p>
+                <Icon 
+                  name={connectionStatus === 'fallback' ? 'Info' : 'AlertTriangle'} 
+                  size={20} 
+                  className={connectionStatus === 'fallback' ? 'text-blue-600' : 'text-yellow-600'} 
+                />
+                <p className={`ml-3 ${
+                  connectionStatus === 'fallback' ? 'text-blue-800' : 'text-yellow-800'
+                }`}>
+                  {error}
+                </p>
               </div>
             </div>
           </div>
@@ -237,11 +257,12 @@ const ProductSelection = () => {
                 </div>
               </div>
 
-              {/* Debug Info */}
+              {/* Debug Info - Only in development */}
               {process.env.NODE_ENV === 'development' && (
                 <div className="card p-4 bg-gray-50">
                   <h3 className="font-medium text-gray-700 mb-2">Debug Info</h3>
                   <div className="text-xs text-gray-600 space-y-1">
+                    <div>Connection: {connectionStatus}</div>
                     <div>Total Products: {products.length}</div>
                     <div>Selected Category: {selectedCategory}</div>
                     <div>Filtered Animals: {allAnimals.length}</div>

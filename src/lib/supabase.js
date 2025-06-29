@@ -3,40 +3,74 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+console.log('Supabase Config Check:');
+console.log('URL:', supabaseUrl);
+console.log('Key present:', !!supabaseAnonKey);
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables');
-  console.log('VITE_SUPABASE_URL:', supabaseUrl);
-  console.log('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Present' : 'Missing');
+  console.error('❌ Missing Supabase environment variables');
+  throw new Error('Supabase configuration missing');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// ✅ Ensure NO trailing slash in URL
+const cleanUrl = supabaseUrl.replace(/\/$/, '');
+
+export const supabase = createClient(cleanUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'apikey': supabaseAnonKey,
+      'Authorization': `Bearer ${supabaseAnonKey}`
+    }
   }
 });
+
+// Test connection function
+export const testConnection = async () => {
+  try {
+    console.log('🔄 Testing Supabase connection...');
+    const { data, error } = await supabase.from('categories').select('count').limit(1);
+    
+    if (error) {
+      console.error('❌ Supabase connection test failed:', error);
+      return false;
+    }
+    
+    console.log('✅ Supabase connection successful');
+    return true;
+  } catch (err) {
+    console.error('❌ Network error testing connection:', err);
+    return false;
+  }
+};
 
 // Database helper functions with improved error handling and fallback data
 export const db = {
   // Categories
   async getCategories() {
     try {
-      console.log('Fetching categories from Supabase...');
+      console.log('📡 Fetching categories from Supabase...');
+      
       const { data, error } = await supabase
         .from('categories')
         .select('*')
         .order('name');
       
       if (error) {
-        console.error('Supabase error fetching categories:', error);
+        console.error('❌ Supabase error fetching categories:', error);
         throw error;
       }
       
-      console.log('Categories fetched successfully:', data);
+      console.log('✅ Categories fetched successfully:', data?.length || 0, 'items');
       return data || [];
     } catch (error) {
-      console.error('Network error fetching categories:', error);
+      console.error('❌ Network error fetching categories:', error);
+      console.log('🔄 Using fallback data...');
+      
       // Return fallback data
       return [
         { id: '1', name: 'Chicken', created_at: new Date().toISOString() },
@@ -104,7 +138,7 @@ export const db = {
   // Products
   async getProducts(filters = {}) {
     try {
-      console.log('Fetching products from Supabase with filters:', filters);
+      console.log('📡 Fetching products from Supabase with filters:', filters);
       
       let query = supabase
         .from('products')
@@ -129,15 +163,16 @@ export const db = {
       const { data, error } = await query;
       
       if (error) {
-        console.error('Supabase error fetching products:', error);
+        console.error('❌ Supabase error fetching products:', error);
         throw error;
       }
       
-      console.log('Products fetched successfully:', data);
+      console.log('✅ Products fetched successfully:', data?.length || 0, 'items');
       return data || [];
     } catch (error) {
-      console.error('Network error fetching products:', error);
-      console.log('Falling back to mock data...');
+      console.error('❌ Network error fetching products:', error);
+      console.log('🔄 Falling back to mock data...');
+      
       // Return fallback mock data for development
       return this.getMockProducts(filters);
     }
@@ -145,7 +180,7 @@ export const db = {
 
   // Mock data for fallback when Supabase is not available
   getMockProducts(filters = {}) {
-    console.log('Using mock product data as fallback');
+    console.log('🎭 Using mock product data as fallback');
     
     const mockCategories = {
       '1': { id: '1', name: 'Chicken' },
@@ -402,5 +437,8 @@ export const db = {
     }
   }
 };
+
+// Test connection on module load
+testConnection();
 
 export default supabase;
