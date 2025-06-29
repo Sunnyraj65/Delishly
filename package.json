@@ -8,6 +8,7 @@
     "@clerk/nextjs": "^6.22.0",
     "@dhiwise/component-tagger": "^1.0.1",
     "@reduxjs/toolkit": "^2.6.1",
+    "@supabase/supabase-js": "^2.39.0",
     "@tailwindcss/forms": "^0.5.7",
     "@testing-library/jest-dom": "^5.15.1",
     "@testing-library/react": "^11.2.7",
