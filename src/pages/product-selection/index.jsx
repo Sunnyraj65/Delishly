@@ -18,6 +18,7 @@ const ProductSelection = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [error, setError] = useState(null);
 
   // Initialize category from URL params
   useEffect(() => {
@@ -27,20 +28,35 @@ const ProductSelection = () => {
     }
   }, [searchParams]);
 
-  // Fetch categories and products
+  // Fetch categories and products with better error handling
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      setError(null);
+      
       try {
+        console.log('Fetching data from Supabase...');
+        
         const [categoriesData, productsData] = await Promise.all([
           db.getCategories(),
           db.getProducts({ status: 'live' })
         ]);
         
+        console.log('Categories fetched:', categoriesData);
+        console.log('Products fetched:', productsData);
+        
         setCategories(categoriesData);
         setProducts(productsData);
       } catch (e) {
         console.error('Error fetching data:', e);
+        setError('Unable to load products. Please check your internet connection and try again.');
+        
+        // Set fallback data for development
+        setCategories([
+          { id: '1', name: 'Chicken', created_at: new Date().toISOString() },
+          { id: '2', name: 'Fish', created_at: new Date().toISOString() }
+        ]);
+        setProducts([]);
       }
       setIsLoading(false);
     };
@@ -142,6 +158,18 @@ const ProductSelection = () => {
             </div>
           </div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <Icon name="AlertCircle" size={20} className="text-red-500 mr-3" />
+                <p className="text-red-700">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
