@@ -168,6 +168,56 @@ export const db = {
     
     if (error) throw error;
     return data;
+  },
+
+  // Phone Authentication
+  async createPhoneUser(phoneNumber, userData = {}) {
+    // Create a phone-based email for Supabase compatibility
+    const email = `${phoneNumber}@phone.freshcut.com`;
+    const password = `phone_${phoneNumber}_${Date.now()}`;
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          phone: phoneNumber,
+          auth_method: 'phone',
+          name: userData.name || `User ${phoneNumber}`,
+          ...userData
+        }
+      }
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async signInWithPhone(phoneNumber, otp) {
+    // For demo purposes, accept any 6-digit OTP
+    if (!otp || otp.length !== 6) {
+      throw new Error('Invalid OTP');
+    }
+
+    const email = `${phoneNumber}@phone.freshcut.com`;
+    
+    try {
+      // Try to sign in with existing account
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: `phone_${phoneNumber}_verified`
+      });
+
+      if (error) {
+        // If account doesn't exist, create it
+        return await this.createPhoneUser(phoneNumber);
+      }
+
+      return data;
+    } catch (err) {
+      // Create new account if sign in fails
+      return await this.createPhoneUser(phoneNumber);
+    }
   }
 };
 

@@ -45,28 +45,33 @@ const PhoneAuthModal = ({ isOpen, onClose, onSuccess }) => {
     setError('');
 
     try {
-      // For demo purposes, accept any 6-digit OTP
-      // In a real app, you would verify the OTP with your backend
-      
-      // Create a temporary email for phone-based auth
-      const email = `${phoneNumber}@phone.freshcut.com`;
-      const password = `phone_${phoneNumber}_${otp}`;
+      // For demo purposes, we'll create a proper email/password combination
+      // that follows standard email format and use a consistent password
+      const email = `user${phoneNumber}@freshcut.demo`;
+      const password = `FreshCut2024!${phoneNumber}`;
 
       try {
         // Try to sign in first
         await signIn(email, password);
       } catch (signInError) {
-        // If sign in fails, create new account
-        await signUp(email, password, {
-          phone: phoneNumber,
-          auth_method: 'phone'
-        });
+        // If sign in fails, create new account with proper password requirements
+        try {
+          await signUp(email, password, {
+            phone: phoneNumber,
+            auth_method: 'phone',
+            full_name: `User ${phoneNumber}`
+          });
+        } catch (signUpError) {
+          // If both fail, it might be a validation issue
+          throw new Error('Authentication failed. Please try again.');
+        }
       }
 
       onSuccess();
       onClose();
     } catch (err) {
-      setError('Invalid OTP. Please try again.');
+      console.error('Authentication error:', err);
+      setError('Authentication failed. Please try again.');
     } finally {
       setLoading(false);
     }
