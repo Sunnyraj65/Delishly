@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Icon from 'components/AppIcon';
 import Header from 'components/ui/Header';
-
 import ProgressIndicator from 'components/ui/ProgressIndicator';
+import PhoneAuthModal from 'components/PhoneAuthModal';
+import { useAuth } from 'contexts/AuthContext';
 
 const ShoppingCartCheckout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [cartItems, setCartItems] = useState([]);
   const [orderSummary, setOrderSummary] = useState({
     subtotal: 0,
@@ -24,6 +26,7 @@ const ShoppingCartCheckout = () => {
     paymentMethod: 'cash'
   });
   const [activeStep, setActiveStep] = useState('cart'); // 'cart', 'checkout', 'payment', 'confirmation'
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Handle new item added to cart from customization page
   useEffect(() => {
@@ -69,6 +72,18 @@ const ShoppingCartCheckout = () => {
       }
     }
   }, [location.state]);
+
+  // Auto-fill customer info if user is logged in
+  useEffect(() => {
+    if (user) {
+      setCustomerInfo(prev => ({
+        ...prev,
+        name: user.user_metadata?.name || user.email?.split('@')[0] || '',
+        email: user.email || '',
+        phone: user.user_metadata?.phone || ''
+      }));
+    }
+  }, [user]);
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
@@ -141,6 +156,16 @@ const ShoppingCartCheckout = () => {
   };
 
   const handleProceedToCheckout = () => {
+    // Check if user is logged in
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+    setActiveStep('checkout');
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
     setActiveStep('checkout');
   };
 
@@ -347,6 +372,23 @@ const ShoppingCartCheckout = () => {
           Back to Cart
         </button>
       </div>
+
+      {/* User Info Display */}
+      {user && (
+        <div className="p-4 bg-primary-50 rounded-lg border border-primary-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+              <Icon name="User" size={20} className="text-primary" />
+            </div>
+            <div>
+              <p className="font-medium text-primary">Logged in as</p>
+              <p className="text-sm text-primary-700">
+                {user.user_metadata?.phone || user.email}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="space-y-4">
         <div>
@@ -538,6 +580,13 @@ const ShoppingCartCheckout = () => {
           {activeStep === 'confirmation' && renderOrderConfirmation()}
         </div>
       </main>
+
+      {/* Phone Auth Modal */}
+      <PhoneAuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={handleAuthSuccess}
+      />
     </div>
   );
 };
