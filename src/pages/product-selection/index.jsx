@@ -37,33 +37,42 @@ const ProductSelection = () => {
       try {
         console.log('Starting data fetch...');
         
-        const [categoriesData, productsData] = await Promise.all([
-          db.getCategories(),
-          db.getProducts({ status: 'live' })
-        ]);
-        
+        // Always try to fetch categories first
+        const categoriesData = await db.getCategories();
         console.log('Categories received:', categoriesData);
-        console.log('Products received:', productsData);
-        
         setCategories(categoriesData);
+        
+        // Then fetch products
+        const productsData = await db.getProducts({ status: 'live' });
+        console.log('Products received:', productsData);
         setProducts(productsData);
         
         if (productsData.length === 0) {
           console.warn('No products found - this might be expected if database is empty');
         }
+        
+        // Clear any previous error if data fetch succeeds
+        setError(null);
       } catch (e) {
         console.error('Error fetching data:', e);
-        setError('Unable to load products. Using demo data.');
+        setError('Unable to connect to database. Using demo data for preview.');
         
-        // Set fallback data for development
-        setCategories([
-          { id: '1', name: 'Chicken', created_at: new Date().toISOString() },
-          { id: '2', name: 'Fish', created_at: new Date().toISOString() }
-        ]);
-        
-        // Get mock products as fallback
-        const mockProducts = await db.getMockProducts({ status: 'live' });
-        setProducts(mockProducts);
+        // Set fallback data for development - this should always work
+        try {
+          const fallbackCategories = [
+            { id: '1', name: 'Chicken', created_at: new Date().toISOString() },
+            { id: '2', name: 'Fish', created_at: new Date().toISOString() }
+          ];
+          setCategories(fallbackCategories);
+          
+          // Get mock products as fallback
+          const mockProducts = db.getMockProducts({ status: 'live' });
+          setProducts(mockProducts);
+          console.log('Fallback data loaded successfully');
+        } catch (fallbackError) {
+          console.error('Even fallback data failed:', fallbackError);
+          setError('Unable to load any data. Please refresh the page.');
+        }
       }
       setIsLoading(false);
     };
@@ -189,10 +198,10 @@ const ProductSelection = () => {
         {/* Error Message */}
         {error && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center">
-                <Icon name="AlertCircle" size={20} className="text-yellow-600 mr-3" />
-                <p className="text-yellow-800">{error}</p>
+                <Icon name="Info" size={20} className="text-blue-600 mr-3" />
+                <p className="text-blue-800">{error}</p>
               </div>
             </div>
           </div>
@@ -237,6 +246,8 @@ const ProductSelection = () => {
                     <div>Selected Category: {selectedCategory}</div>
                     <div>Filtered Animals: {allAnimals.length}</div>
                     <div>Categories: {categories.length}</div>
+                    <div>Loading: {isLoading ? 'Yes' : 'No'}</div>
+                    <div>Error: {error ? 'Yes' : 'No'}</div>
                   </div>
                 </div>
               )}

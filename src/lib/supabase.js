@@ -137,6 +137,7 @@ export const db = {
       return data || [];
     } catch (error) {
       console.error('Network error fetching products:', error);
+      console.log('Falling back to mock data...');
       // Return fallback mock data for development
       return this.getMockProducts(filters);
     }
