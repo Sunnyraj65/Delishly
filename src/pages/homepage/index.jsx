@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import Icon from 'components/AppIcon';
 
 import Header from 'components/ui/Header';
-import LoadingScreen from 'components/ui/LoadingScreen';
 import HeroBanner from './components/HeroBanner';
 import CallToActionButtons from './components/CallToActionButtons';
 import HighlightsSection from './components/HighlightsSection';
@@ -12,7 +11,7 @@ import useOrders from 'hooks/useOrders';
 
 const Homepage = () => {
   const { hasOrders } = useOrders();
-  const [showLoadingScreen, setShowLoadingScreen] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const quickLinks = [
     { label: 'Order Chicken', path: '/product-selection' },
     { label: 'Order Fish', path: '/product-selection' },
@@ -20,14 +19,26 @@ const Homepage = () => {
     { label: 'My Account', path: '/user-account-profile' }
   ];
 
-  // Handle loading screen completion
-  const handleLoadingComplete = () => {
-    setShowLoadingScreen(false);
-  };
+  useEffect(() => {
+    // Simulate loading time for better UX
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 800);
 
-  // Show loading screen on first visit
-  if (showLoadingScreen) {
-    return <LoadingScreen onComplete={handleLoadingComplete} />;
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Icon name="Truck" size={32} className="text-white" />
+          </div>
+          <p className="text-text-secondary font-caption">Loading fresh products...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
