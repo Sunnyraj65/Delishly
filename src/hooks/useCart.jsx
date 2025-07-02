@@ -6,24 +6,36 @@ const useCart = () => {
 
   // Load cart from localStorage on initial render
   useEffect(() => {
-    const savedCart = localStorage.getItem('freshcut_cart');
-    if (savedCart) {
+    const loadCart = () => {
       try {
-        setCartItems(JSON.parse(savedCart));
+        const savedCart = localStorage.getItem('freshcut_cart');
+        if (savedCart) {
+          const parsed = JSON.parse(savedCart);
+          if (Array.isArray(parsed)) {
+            setCartItems(parsed);
+          }
+        }
       } catch (e) {
         console.error('Error loading cart from localStorage', e);
+        localStorage.removeItem('freshcut_cart');
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+
+    loadCart();
   }, []);
 
-  // Save cart to localStorage whenever it changes
+  // Save cart to localStorage whenever it changes (but not during initial load)
   useEffect(() => {
     if (!loading) {
-      if (cartItems.length > 0) {
-        localStorage.setItem('freshcut_cart', JSON.stringify(cartItems));
-      } else {
-        localStorage.removeItem('freshcut_cart');
+      try {
+        if (cartItems.length > 0) {
+          localStorage.setItem('freshcut_cart', JSON.stringify(cartItems));
+        } else {
+          localStorage.removeItem('freshcut_cart');
+        }
+      } catch (e) {
+        console.error('Error saving cart to localStorage', e);
       }
     }
   }, [cartItems, loading]);
@@ -33,7 +45,7 @@ const useCart = () => {
     setCartItems(prevItems => {
       const existingItemIndex = prevItems.findIndex(i => 
         i.id === item.id && 
-        i.customization?.cuttingStyle === item.customization?.cuttingStyle
+        JSON.stringify(i.customization) === JSON.stringify(item.customization)
       );
       
       if (existingItemIndex >= 0) {

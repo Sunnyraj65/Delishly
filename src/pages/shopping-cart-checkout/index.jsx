@@ -28,48 +28,74 @@ const ShoppingCartCheckout = () => {
   const [activeStep, setActiveStep] = useState('cart'); // 'cart', 'checkout', 'payment', 'confirmation'
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  // Load cart from localStorage on component mount
+  useEffect(() => {
+    const loadCartFromStorage = () => {
+      try {
+        const savedCart = localStorage.getItem('freshcut_cart');
+        if (savedCart) {
+          const parsed = JSON.parse(savedCart);
+          if (Array.isArray(parsed)) {
+            setCartItems(parsed);
+          }
+        }
+      } catch (e) {
+        console.error('Error loading cart from localStorage', e);
+        localStorage.removeItem('freshcut_cart');
+      }
+    };
+
+    loadCartFromStorage();
+  }, []);
+
   // Handle new item added to cart from customization page
   useEffect(() => {
     if (location.state?.newItem && location.state?.fromCustomization) {
       const newItem = location.state.newItem;
       
-      // Check if item already exists in cart
       setCartItems(prevItems => {
-        const existingItemIndex = prevItems.findIndex(item => 
+        // Load existing cart from localStorage first
+        let existingItems = [];
+        try {
+          const savedCart = localStorage.getItem('freshcut_cart');
+          if (savedCart) {
+            const parsed = JSON.parse(savedCart);
+            if (Array.isArray(parsed)) {
+              existingItems = parsed;
+            }
+          }
+        } catch (e) {
+          console.error('Error loading existing cart', e);
+        }
+
+        // Check if item already exists in cart
+        const existingItemIndex = existingItems.findIndex(item => 
           item.id === newItem.id && 
-          item.customization?.cuttingStyle === newItem.customization?.cuttingStyle
+          JSON.stringify(item.customization) === JSON.stringify(newItem.customization)
         );
         
+        let updatedItems;
         if (existingItemIndex >= 0) {
           // Update existing item quantity
-          const updatedItems = [...prevItems];
+          updatedItems = [...existingItems];
           updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 1) + 1;
-          return updatedItems;
         } else {
           // Add new item
-          return [...prevItems, { ...newItem, quantity: 1 }];
+          updatedItems = [...existingItems, { ...newItem, quantity: 1 }];
         }
+
+        // Save to localStorage immediately
+        try {
+          localStorage.setItem('freshcut_cart', JSON.stringify(updatedItems));
+        } catch (e) {
+          console.error('Error saving cart to localStorage', e);
+        }
+
+        return updatedItems;
       });
       
       // Clear location state to prevent duplicate additions on refresh
       window.history.replaceState({}, document.title);
-    } else {
-      // Load cart from localStorage if available
-      const savedCart = localStorage.getItem('freshcut_cart');
-      if (savedCart) {
-        try {
-          const parsed = JSON.parse(savedCart);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setCartItems(parsed);
-          } else {
-            // clear corrupted or empty cart
-            localStorage.removeItem('freshcut_cart');
-          }
-        } catch (e) {
-          console.error('Error loading cart from localStorage', e);
-          localStorage.removeItem('freshcut_cart');
-        }
-      }
     }
   }, [location.state]);
 
@@ -85,10 +111,20 @@ const ShoppingCartCheckout = () => {
     }
   }, [user]);
 
-  // Save cart to localStorage whenever it changes
+  // Save cart to localStorage whenever it changes (except during initial load)
   useEffect(() => {
     if (cartItems.length > 0) {
-      localStorage.setItem('freshcut_cart', JSON.stringify(cartItems));
+      try {
+        localStorage.setItem('freshcut_cart', JSON.stringify(cartItems));
+      } catch (e) {
+        console.error('Error saving cart to localStorage', e);
+      }
+    } else {
+      // Only remove if we're not in the initial loading state
+      const savedCart = localStorage.getItem('freshcut_cart');
+      if (savedCart && cartItems.length === 0) {
+        localStorage.removeItem('freshcut_cart');
+      }
     }
   }, [cartItems]);
 
@@ -133,11 +169,6 @@ const ShoppingCartCheckout = () => {
   const handleRemoveItem = (itemId) => {
     setCartItems(prevItems => {
       const updated = prevItems.filter(item => item.id !== itemId);
-      if (updated.length === 0) {
-        localStorage.removeItem('freshcut_cart');
-      } else {
-        localStorage.setItem('freshcut_cart', JSON.stringify(updated));
-      }
       return updated;
     });
   };
@@ -219,7 +250,7 @@ const ShoppingCartCheckout = () => {
       
       <div className="space-y-6 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
         {cartItems.map(item => (
-          <div key={item.id} className="flex gap-4 py-4 border-b border-border">
+          <div key={`${item.id}-${JSON.stringify(item.customization)}`} className="flex gap-4 py-4 border-b border-border">
             <div className="w-24 h-24 rounded-lg overflow-hidden bg-surface-100 flex-shrink-0">
               <img 
                 src={item.image} 
@@ -231,7 +262,7 @@ const ShoppingCartCheckout = () => {
             <div className="flex-1">
               <div className="flex justify-between">
                 <h3 className="font-heading font-medium text-text-primary">
-                  {item.type.charAt(0).toUpperCase() + item.type.slice(1)} - {item.actualWeight}kg
+                  {item.type?.charAt(0).toUpperCase() + item.type?.slice(1)} - {item.actualWeight}kg
                 </h3>
                 <button 
                   onClick={() => handleRemoveItem(item.id)}

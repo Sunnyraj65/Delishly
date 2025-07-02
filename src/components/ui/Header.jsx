@@ -11,26 +11,44 @@ const Header = () => {
   // Load and watch cart count from localStorage
   useEffect(() => {
     const loadCartCount = () => {
-      const savedCart = localStorage.getItem('freshcut_cart');
-      if (savedCart) {
-        try {
+      try {
+        const savedCart = localStorage.getItem('freshcut_cart');
+        if (savedCart) {
           const items = JSON.parse(savedCart);
-          const count = items.reduce((c, item) => c + (item.quantity || 1), 0);
-          setCartCount(count);
-        } catch (e) {
-          console.error('Error parsing cart from localStorage', e);
+          if (Array.isArray(items)) {
+            const count = items.reduce((c, item) => c + (item.quantity || 1), 0);
+            setCartCount(count);
+          } else {
+            setCartCount(0);
+          }
+        } else {
           setCartCount(0);
         }
-      } else {
+      } catch (e) {
+        console.error('Error parsing cart from localStorage', e);
         setCartCount(0);
       }
     };
 
     // Initial load
     loadCartCount();
+    
     // Poll for changes every second (localStorage event not reliable across tabs in same window)
     const interval = setInterval(loadCartCount, 1000);
-    return () => clearInterval(interval);
+    
+    // Also listen for storage events (when localStorage changes in other tabs)
+    const handleStorageChange = (e) => {
+      if (e.key === 'freshcut_cart') {
+        loadCartCount();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   let navigationItems = [

@@ -12,29 +12,42 @@ const CartStatusIndicator = () => {
   // Load cart data from localStorage
   useEffect(() => {
     const loadCartData = () => {
-      const savedCart = localStorage.getItem('freshcut_cart');
-      if (savedCart) {
-        try {
+      try {
+        const savedCart = localStorage.getItem('freshcut_cart');
+        if (savedCart) {
           const cartItems = JSON.parse(savedCart);
-          const itemCount = cartItems.reduce((count, item) => count + (item.quantity || 1), 0);
-          const totalPrice = cartItems.reduce((sum, item) => {
-            return sum + (item.pricing?.total || 0) * (item.quantity || 1);
-          }, 0);
+          if (Array.isArray(cartItems)) {
+            const itemCount = cartItems.reduce((count, item) => count + (item.quantity || 1), 0);
+            const totalPrice = cartItems.reduce((sum, item) => {
+              return sum + (item.pricing?.total || 0) * (item.quantity || 1);
+            }, 0);
 
-          setCartData(prev => {
-            const hasChanges = prev.itemCount !== itemCount;
-            if (hasChanges) {
-              // flash animation reset later
-              setTimeout(() => {
-                setCartData(p => ({ ...p, hasChanges: false }));
-              }, 1000);
-            }
-            return { itemCount, totalPrice, hasChanges };
+            setCartData(prev => {
+              const hasChanges = prev.itemCount !== itemCount;
+              if (hasChanges) {
+                // flash animation reset later
+                setTimeout(() => {
+                  setCartData(p => ({ ...p, hasChanges: false }));
+                }, 1000);
+              }
+              return { itemCount, totalPrice, hasChanges };
+            });
+          } else {
+            setCartData({
+              itemCount: 0,
+              totalPrice: 0,
+              hasChanges: false
+            });
+          }
+        } else {
+          setCartData({
+            itemCount: 0,
+            totalPrice: 0,
+            hasChanges: false
           });
-        } catch (e) {
-          console.error('Error loading cart from localStorage', e);
         }
-      } else {
+      } catch (e) {
+        console.error('Error loading cart from localStorage', e);
         setCartData({
           itemCount: 0,
           totalPrice: 0,
@@ -48,7 +61,20 @@ const CartStatusIndicator = () => {
     
     // Set up interval to check for cart changes
     const interval = setInterval(loadCartData, 1000);
-    return () => clearInterval(interval);
+    
+    // Also listen for storage events (when localStorage changes in other tabs)
+    const handleStorageChange = (e) => {
+      if (e.key === 'freshcut_cart') {
+        loadCartData();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   if (cartData.itemCount === 0) {
