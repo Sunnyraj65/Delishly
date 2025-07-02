@@ -6,6 +6,7 @@ import { db, testConnection } from 'lib/supabase';
 import Header from 'components/ui/Header';
 import ProgressIndicator from 'components/ui/ProgressIndicator';
 import CartStatusIndicator from 'components/ui/CartStatusIndicator';
+import LoadingScreen from 'components/ui/LoadingScreen';
 import AnimalPreview from './components/AnimalPreview';
 import StockIndicator from './components/StockIndicator';
 
@@ -16,6 +17,7 @@ const ProductSelection = () => {
   const [selectedAnimal, setSelectedAnimal] = useState(null);
   const [selectedAnimals, setSelectedAnimals] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showLoadingScreen, setShowLoadingScreen] = useState(true);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState(null);
@@ -29,9 +31,17 @@ const ProductSelection = () => {
     }
   }, [searchParams]);
 
+  // Handle loading screen completion
+  const handleLoadingComplete = () => {
+    setShowLoadingScreen(false);
+  };
+
   // Test connection and fetch data
   useEffect(() => {
     const initializeData = async () => {
+      // Don't start data loading until loading screen is done
+      if (showLoadingScreen) return;
+      
       setIsLoading(true);
       setError(null);
       
@@ -72,7 +82,7 @@ const ProductSelection = () => {
     };
 
     initializeData();
-  }, []);
+  }, [showLoadingScreen]);
 
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
@@ -147,6 +157,11 @@ const ProductSelection = () => {
     });
 
   console.log('🔍 Filtered animals for category', selectedCategory, ':', allAnimals.length);
+
+  // Show loading screen first
+  if (showLoadingScreen) {
+    return <LoadingScreen onComplete={handleLoadingComplete} />;
+  }
 
   return (
     <div className="min-h-screen bg-surface">
